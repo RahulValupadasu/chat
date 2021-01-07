@@ -13,7 +13,6 @@ const port = process.env.PORT || 3000
 const publicDirectoryPath = path.join(__dirname, '../public')
 
 app.use(express.static(publicDirectoryPath));
-var count = 0;
 
 io.on('connection',(socket)=>{
     console.log("New websocket connection");
@@ -25,13 +24,21 @@ io.on('connection',(socket)=>{
     //     count++;
     //     io.emit('countUpdated',count);
     // });
-    //emits a event expect the current socket/connection/client/user
+
+
+    //emits a event expect to the current socket/connection/client/user
     socket.broadcast.emit("message","A new user is added");
 
-    socket.on('newMessage',(message)=>{
-        socket.emit('message',message);
+    socket.on('newMessage',(message,callback)=>{
+        const filter = new filterBadWords();
+        if(filter.isProfane(message)){
+            return callback('profanity not allowed')
+        }
+        io.emit('message',message);
+        callback("message sent succesfully")
     })
-
+     
+    //when a socket is disconnected
     socket.on('disconnect',()=>{
         io.emit("message","A user has left");
     });
