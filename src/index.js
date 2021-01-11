@@ -3,6 +3,9 @@ const express = require('express');
 const http = require('http');
 const socketio = require('socket.io');
 const filterBadWords = require('bad-words');
+const { generateMessage } = require('./utils/message');
+const {generateLocation}= require('./utils/message');
+const {addUser,removeUser,getUser,getUsersInRoom}= require('./utils/users');
 
 const app = express();
 const server = http.createServer(app);
@@ -16,36 +19,52 @@ app.use(express.static(publicDirectoryPath));
 
 io.on('connection',(socket)=>{
     console.log("New websocket connection");
+    
+    //listeing to "join" event sent from client side
+    socket.on('join',(options,callback)=>{
+        console.log({ id:socket.id,...options})
+        //adding user 
+        const {error,user} = addUser({ id:socket.id, ...options})
+        console.log(user)
+        console.log(error)
+        if(error){
+            return callback(error)
+        }
+        //creates a room with name value containing in room
+        socket.join(user.room);
+        //welcoming user to the room
+        socket.emit("message",generateMessage('welcome','Admin'));
 
-    socket.emit("message","Welcome");
-    // socket.emit('countUpdated',count);
-
-    // socket.on('increment',()=>{
-    //     count++;
-    //     io.emit('countUpdated',count);
-    // });
+        //broadcasting a event to everyone in the room
+        socket.broadcast.to(user.room).emit('message',generateMessage(`${user.username} has joined`,'Admin'));
+        callback();
 
 
+    })
+ 
     //emits a event expect to the current socket/connection/client/user
-    socket.broadcast.emit("message","A new user is added");
-
     socket.on('newMessage',(message,callback)=>{
+        const user = getUser(socket.id);
         const filter = new filterBadWords();
         if(filter.isProfane(message)){
             return callback('profanity not allowed')
         }
-        io.emit('message',message);
-        callback("message sent succesfully")
+        io.to(user.room).emit('message',generateMessage(message,user.username));
+        callback("message sent succesfully");
     })
      
     //when a socket is disconnected
     socket.on('disconnect',()=>{
-        io.emit("message","A user has left");
+        const user = removeUser(socket.id);
+        if(user){
+            io.to(user.room).emit("message",generateMessage(`${user.username} has left`,'Admin'));
+        }
     });
 
     //receiving location services
     socket.on('sendLocation',(locationCoordinates)=>{
-        socket.broadcast.emit('message',`https://google.com/maps?q=${locationCoordinates.latitude},${locationCoordinates.longitude}`);
+        const user = getUser(socket.id)
+        io.to(user.room).emit('locationMessage',generateLocation(`https://google.com/maps?q=${locationCoordinates.latitude},${locationCoordinates.longitude}`));
     })
 })
 
