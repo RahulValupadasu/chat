@@ -25,8 +25,8 @@ io.on('connection',(socket)=>{
         console.log({ id:socket.id,...options})
         //adding user 
         const {error,user} = addUser({ id:socket.id, ...options})
-        console.log(user)
-        console.log(error)
+        // console.log(user)
+        // console.log(error)
         if(error){
             return callback(error)
         }
@@ -37,6 +37,11 @@ io.on('connection',(socket)=>{
 
         //broadcasting a event to everyone in the room
         socket.broadcast.to(user.room).emit('message',generateMessage(`${user.username} has joined`,'Admin'));
+        //sending Room name and users in the room i.e emitting "sideBarInfo" event when a user joins the room
+        io.to(user.room).emit('sideBarInfo',{
+            users:getUsersInRoom(user.room),
+            room:user.room
+        });
         callback();
 
 
@@ -58,13 +63,20 @@ io.on('connection',(socket)=>{
         const user = removeUser(socket.id);
         if(user){
             io.to(user.room).emit("message",generateMessage(`${user.username} has left`,'Admin'));
+             //sending Room name and users in the room i.e emitting "sideBarInfo" event when a user leaves the room
+            io.to(user.room).emit('sideBarInfo',{
+                users:getUsersInRoom(user.room),
+                room:user.room
+            })
         }
     });
 
     //receiving location services
     socket.on('sendLocation',(locationCoordinates)=>{
+        console.log('location cordinates',locationCoordinates);
         const user = getUser(socket.id)
-        io.to(user.room).emit('locationMessage',generateLocation(`https://google.com/maps?q=${locationCoordinates.latitude},${locationCoordinates.longitude}`));
+        // console.log("user",user.username)
+        io.to(user.room).emit('locationMessage',generateLocation(`https://google.com/maps?q=${locationCoordinates.latitude},${locationCoordinates.longitude}`,user.username));
     })
 })
 

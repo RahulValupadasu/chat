@@ -6,8 +6,9 @@ const generateMessage = (text,username)=>{
       }
 };
 
-const generateLocation = (url)=>{
+const generateLocation = (url,username)=>{
     return {
+        username,
         url,
         timeStamp: new Date().getTime()
     }
